@@ -18,11 +18,11 @@ function parseCompound(text) {
   const rest = m[2] || ''
   const classes = []
   const attrs = []
-  const re = /\.([A-Za-z0-9_-]+)|\[([A-Za-z0-9_:-]+)(?:=(?:"([^"]*)"|'([^']*)'|([^\]]*)))?\]/g
+  const re = /\.([A-Za-z0-9_-]+)|\[([A-Za-z0-9_:-]+)(?:(\*?=)(?:"([^"]*)"|'([^']*)'|([^\]]*)))?\]/g
   let r
   while ((r = re.exec(rest))) {
     if (r[1]) classes.push(r[1])
-    else attrs.push({ name: r[2], value: r[3] ?? r[4] ?? r[5] ?? null })
+    else attrs.push({ name: r[2], op: r[3] ?? null, value: r[4] ?? r[5] ?? r[6] ?? null })
   }
   return { tag, classes, attrs }
 }
@@ -33,7 +33,11 @@ function matchCompound(el, c) {
   for (const cls of c.classes) if (!el.hasClass(cls)) return false
   for (const a of c.attrs) {
     if (!el.hasAttribute(a.name)) return false
-    if (a.value !== null && el.getAttribute(a.name) !== a.value) return false
+    if (a.value === null) continue
+    const actual = el.getAttribute(a.name)
+    if (a.op === '*=') {
+      if (!String(actual).includes(a.value)) return false
+    } else if (actual !== a.value) return false
   }
   return true
 }
@@ -65,6 +69,17 @@ function descendants(root, out = []) {
     descendants(child, out)
   }
   return out
+}
+
+class TextNode {
+  constructor(value) {
+    this.nodeType = 3
+    this.nodeValue = String(value)
+    this.parentElement = null
+  }
+  get textContent() { return this.nodeValue }
+  set textContent(v) { this.nodeValue = String(v) }
+  cloneNode() { return new TextNode(this.nodeValue) }
 }
 
 class El {
@@ -105,7 +120,15 @@ class El {
     this._textContent = String(v)
     for (const child of this.children) child.parentElement = null
     this.children = []
+    // A real DOM keeps the string in a text node child, not on the element; the
+    // folding code walks those nodes to empty a range, so the stub must too.
+    if (this._textContent !== '') {
+      const node = new TextNode(this._textContent)
+      node.parentElement = this
+      this.children.push(node)
+    }
   }
+  get childNodes() { return this.children }
   get className() { return this._class }
   set className(v) { this._class = String(v); this.setAttribute('class', this._class) }
   addClass(n) { const set = new Set(this._class.split(/\s+/).filter(Boolean)); set.add(n); this._class = [...set].join(' ') }

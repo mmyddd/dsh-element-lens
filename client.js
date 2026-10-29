@@ -53,6 +53,8 @@ window.__ModuleLoader__.load({
         chipUnit: '个元素',
         panelCountTitle: '网页元素（{n} 个）',
         rowRemove: '删除',
+        sentChip: '元素 ×{n}',
+        sentChipHint: '本消息携带的网页元素',
         tooMany: '一次最多拾取 12 个元素',
       },
       en: {
@@ -68,6 +70,8 @@ window.__ModuleLoader__.load({
         chipUnit: ' element(s)',
         panelCountTitle: 'Page elements ({n})',
         rowRemove: 'Delete',
+        sentChip: 'element ×{n}',
+        sentChipHint: 'Web elements this message carried',
         tooMany: 'At most 12 elements per pick',
       },
     }
@@ -127,6 +131,15 @@ window.__ModuleLoader__.load({
 [data-element-lens-trigger] > svg { display: block; width: 16px; height: 16px; pointer-events: none; }
 [data-element-lens-chip] { -webkit-user-select: none; user-select: none; }
 [data-element-lens-chip] > b { color: var(--dsw-alias-text-accent, #4c9aff); font-weight: 700; }
+.dsh-elens-sent {
+  display: inline-flex; align-items: center; height: 20px; padding: 0 8px;
+  margin: 0 2px; border-radius: 10px; cursor: default; vertical-align: middle;
+  border: 1px solid var(--dsw-alias-border-inverted);
+  background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-base, #2c2c2e));
+  font-size: 11px; line-height: 18px; color: var(--dsw-alias-label-secondary);
+  white-space: nowrap;
+}
+.dsh-elens-sent:hover { color: var(--dsw-alias-label-primary); }
 [data-element-lens-tip] {
   position: fixed; z-index: 1160; box-sizing: border-box; width: 300px;
   max-width: calc(100vw - 16px); max-height: 340px; overflow: auto;
@@ -1178,6 +1191,120 @@ window.__ModuleLoader__.load({
         tipOwner = null
       }
 
+      // ─────────────────── sent-message folding ───────────────────
+      // The model form has to reach the model verbatim, so it has to sit in the
+      // draft as text. Once sent, the transcript re-renders that text inside the
+      // user's own bubble — a full element form is far too tall for that. Blank
+      // it out there and leave nothing behind: the bubble shows what the user
+      // actually wrote, and the picked elements remain readable from the pill's
+      // hover panel like any other reference list.
+      const ELEMENT_BLOCK = /## Element \d+\r?\n[\s\S]*?HTML excerpt:\r?\n```(?:html)?\r?\n[\s\S]*?\r?\n```/g
+
+      /** Empties one character range of a bubble's concatenated text nodes. */
+      function blankRange(nodes, start, end) {
+        let cursor = 0
+        for (const node of nodes) {
+          const text = node.nodeValue ?? ''
+          const from = cursor
+          const to = cursor + text.length
+          cursor = to
+          if (to <= start || from >= end) continue
+          const head = text.slice(0, Math.max(0, start - from))
+          const tail = text.slice(Math.max(0, Math.min(text.length, end - from)))
+          node.nodeValue = head + tail
+        }
+      }
+
+      /** Collects a container's text nodes in document order. */
+      function textNodesOf(root, out = []) {
+        const children = root.childNodes ?? root.children ?? []
+        for (const child of children) {
+          if (child.nodeType === 3 || typeof child.nodeValue === 'string') out.push(child)
+          else textNodesOf(child, out)
+        }
+        return out
+      }
+
+      /** Hides every element block a sent message carries, once per bubble. */
+      function foldBubbles() {
+        for (const bubble of document.querySelectorAll('[class*="bubble"]')) {
+          if (bubble.querySelector('[data-element-lens-fold]') !== null) continue
+          const nodes = textNodesOf(bubble)
+          const full = nodes.map((node) => node.nodeValue ?? '').join('')
+          if (!full.includes('## Element ')) continue
+          const spans = [...full.matchAll(ELEMENT_BLOCK)]
+          if (spans.length === 0) continue
+
+          // Back to front: blanking shifts nothing before the range, but going
+          // backwards keeps every recorded index valid as we go.
+          for (let i = spans.length - 1; i >= 0; i -= 1) {
+            const start = spans[i].index
+            blankRange(nodes, start, start + spans[i][0].length)
+          }
+
+          const blocks = spans.map((match) => match[0])
+          const chip = document.createElement('span')
+          chip.setAttribute('data-element-lens-fold', '')
+          chip.setAttribute('data-element-lens-sent', '')
+          chip.className = 'dsh-elens-sent'
+          chip.textContent = t('sentChip', { n: blocks.length })
+          chip.title = t('sentChipHint')
+          chip.addEventListener('pointerenter', () => {
+            if (tipGrace !== 0) {
+              window.clearTimeout(tipGrace)
+              tipGrace = 0
+            }
+            renderSentTip(chip, blocks)
+          })
+          chip.addEventListener('pointerleave', () => {
+            if (tipGrace !== 0) window.clearTimeout(tipGrace)
+            tipGrace = window.setTimeout(() => {
+              tipGrace = 0
+              if (pointerInRect(chip.getBoundingClientRect(), 10)) return
+              if (tipLayer.style.display === 'block' && pointerInRect(tipLayer.getBoundingClientRect(), 10)) return
+              if (tipOwner === chip) hideTip()
+            }, 260)
+          })
+          bubble.appendChild(chip)
+        }
+      }
+
+      /** Read-only panel for a sent message: what it carried, nothing to edit. */
+      function renderSentTip(chip, blocks) {
+        tipLayer.textContent = ''
+        const head = document.createElement('div')
+        head.className = 'dsh-elens-tip-head'
+        head.textContent = t('panelCountTitle', { n: blocks.length })
+        tipLayer.appendChild(head)
+
+        blocks.forEach((block, index) => {
+          const row = document.createElement('div')
+          row.className = 'dsh-elens-row'
+          const num = document.createElement('span')
+          num.className = 'dsh-elens-row-num'
+          num.textContent = String(index + 1)
+          const selector = document.createElement('span')
+          selector.className = 'dsh-elens-row-sel'
+          const matched = /^Selector: (.*)$/m.exec(block)
+          const text = matched === null ? '' : matched[1]
+          selector.textContent = text.length > 100 ? `${text.slice(0, 100)}…` : text
+          selector.title = text
+          row.appendChild(num)
+          row.appendChild(selector)
+          tipLayer.appendChild(row)
+        })
+
+        tipLayer.style.display = 'block'
+        const chipRect = chip.getBoundingClientRect()
+        const width = tipLayer.offsetWidth || 300
+        const height = tipLayer.offsetHeight || 160
+        const below = chipRect.bottom + 8
+        const top = below + height > window.innerHeight - 8 ? chipRect.top - height - 8 : below
+        tipLayer.style.left = `${Math.max(8, Math.min(chipRect.left, window.innerWidth - width - 8))}px`
+        tipLayer.style.top = `${Math.max(8, top)}px`
+        tipOwner = chip
+      }
+
       /** The composer card, or the seat that may also hold docked controls. */
       function composerAnchor() {
         const card = document.querySelector('[data-composer-card]')
@@ -1752,6 +1879,7 @@ window.__ModuleLoader__.load({
           scheduled = false
           if (!style.isConnected) return
           ensureTriggers()
+          foldBubbles()
           if (chipLayer.isConnected && state.items.length > 0) updateChip()
         })
       }
@@ -1776,6 +1904,7 @@ window.__ModuleLoader__.load({
       const poller = window.setInterval(() => {
         syncDraftSubscription()
         refreshItems()
+        foldBubbles()
       }, 700)
 
       let localeUnsubscribe = null

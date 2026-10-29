@@ -110,15 +110,27 @@ git clone https://github.com/mmyddd/dsh-element-lens
 ## 验证
 
 ```bash
-npm test                  # 五个套件一起跑
+npm test                  # 六个套件一起跑
 node test/manifest.cjs    # 清单、导出、路由、命名一致性
 node test/smoke.cjs       # 布局、点击、Esc、释放
 node test/sync.cjs        # 胶囊 ↔ 草稿双向一致
 node test/chip.cjs        # 胶囊让位批注胶囊的布局
+node test/fold.cjs        # 已发送消息折叠与 hover 回看
 node test/webview.cjs     # guest 通道端到端
 ```
 
 CI 在 Ubuntu 与 Windows 上、Node 22 与 24 下各跑一遍 `npm test`；推 `v*` 标签时同样的检查通过后才会发布 GitHub Release（附带 `.tgz` 与 `SHA256SUMS.txt`）。
+
+## 致谢
+
+本插件的界面语言照抄自 **[@changfenhuang/dsh-annotation](https://www.npmjs.com/package/@changfenhuang/dsh-annotation)**（批注插件），特此致谢：
+
+- **胶囊（pill）**：`22px` 高、`0 10px` 内距、`11px` 圆角、同款边框/底色/阴影，以及 `<b>` 用 `--dsw-alias-text-accent` 的强调色写法，全部沿用它的规格，位置算法（锚 `[data-composer-card]`、`top = min(card.top, seat.top) - h - 6`、贴顶则隐藏、水平 clamp）也一致。
+- **悬浮面板**：`300px` 宽、`10px 12px` 内距、`12px` 圆角、同款边框/底色/阴影、圆角序号徽章的行式布局，与它的面板同构。
+- **已发送消息的呈现**：把体积庞大的引用正文从用户气泡里移走、只留一个「元素 ×N」小标签、内容靠 hover 回看的做法，也来自它的设计（它对应的是「批注 ×N」）。
+- 双方胶囊同处输入框右上角时的让位规则（先量邻居、留 8px 间隙、放不下就叠高），同样以它的胶囊为基准。
+
+样式规格是从它发布在 profile 里的产物读出来的；本插件的代码全部自行实现，未复制其源码。
 
 ## 许可
 
