@@ -123,7 +123,7 @@ CI 在 Ubuntu 与 Windows 上、Node 22 与 24 下各跑一遍 `npm test`；推 
 
 ## 致谢
 
-本插件的界面语言照抄自 **[@changfenhuang/dsh-annotation](https://www.npmjs.com/package/@changfenhuang/dsh-annotation)**（批注插件），特此致谢：
+本插件的界面复刻自 **[@changfenhuang/dsh-annotation](https://www.npmjs.com/package/@changfenhuang/dsh-annotation)**（批注插件），特此致谢：
 
 - **胶囊（pill）**：`22px` 高、`0 10px` 内距、`11px` 圆角、同款边框/底色/阴影，以及 `<b>` 用 `--dsw-alias-text-accent` 的强调色写法，全部沿用它的规格，位置算法（锚 `[data-composer-card]`、`top = min(card.top, seat.top) - h - 6`、贴顶则隐藏、水平 clamp）也一致。
 - **悬浮面板**：`300px` 宽、`10px 12px` 内距、`12px` 圆角、同款边框/底色/阴影、圆角序号徽章的行式布局，与它的面板同构。
