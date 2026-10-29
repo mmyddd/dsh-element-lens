@@ -1,5 +1,9 @@
 # 元素透镜 / Element Lens
 
+[![CI](https://github.com/mmyddd/dsh-element-lens/actions/workflows/ci.yml/badge.svg)](https://github.com/mmyddd/dsh-element-lens/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/mmyddd/dsh-element-lens)](https://github.com/mmyddd/dsh-element-lens/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 在 DSH 右侧栏浏览器里拾取网页元素，把它送进对话草稿。
 
 ## 安装
@@ -100,11 +104,14 @@ git clone https://github.com/mmyddd/dsh-element-lens
 ## 验证
 
 ```bash
-npm test                  # 三个套件一起跑
+npm test                  # 四个套件一起跑
+node test/manifest.cjs    # 清单、导出、路由、命名一致性
 node test/smoke.cjs       # 布局、点击、Esc、释放
 node test/sync.cjs        # 胶囊 ↔ 草稿双向一致
 node test/webview.cjs     # guest 通道端到端
 ```
+
+CI 在 Ubuntu 与 Windows 上、Node 22 与 24 下各跑一遍 `npm test`；推 `v*` 标签时同样的检查通过后才会发布 GitHub Release（附带 `.tgz` 与 `SHA256SUMS.txt`）。
 
 ## 许可
 
