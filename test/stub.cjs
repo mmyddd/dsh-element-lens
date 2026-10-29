@@ -174,9 +174,24 @@ class El {
   }
   matches(sel) { return matches(this, sel) }
   cloneNode() { const copy = new El(this.tagName); copy._class = this._class; for (const [k, v] of this.attributes) copy.attributes.set(k, v); copy.textContent = this.textContent; for (const c of this.children) copy.appendChild(c.cloneNode()); return copy }
-  getBoundingClientRect() { return { x: 0, y: 0, top: 0, left: 0, right: 320, bottom: 40, width: 320, height: 40 } }
-  get offsetWidth() { return 320 }
-  get offsetHeight() { return 40 }
+  /** Gives this element a real layout box; tests that assert geometry need it. */
+  setRect(rect) { this._rect = rect; return this }
+  getBoundingClientRect() {
+    const r = this._rect
+    if (r === undefined) return { x: 0, y: 0, top: 0, left: 0, right: 320, bottom: 40, width: 320, height: 40 }
+    return {
+      x: r.left,
+      y: r.top,
+      left: r.left,
+      top: r.top,
+      width: r.width,
+      height: r.height,
+      right: r.left + r.width,
+      bottom: r.top + r.height,
+    }
+  }
+  get offsetWidth() { return this._rect === undefined ? 320 : this._rect.width }
+  get offsetHeight() { return this._rect === undefined ? 40 : this._rect.height }
   focus() {}
   contains(other) { return descendants(this).includes(other) }
 }

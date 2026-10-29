@@ -36,7 +36,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node test/manifest.cjs && node test/smoke.cjs && node test/sync.cjs && node test/webview.cjs"
+    "test": "node test/manifest.cjs && node test/smoke.cjs && node test/sync.cjs && node test/webview.cjs && node test/chip.cjs"
   },
   "dsh": {
     "bundle": {

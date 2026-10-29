@@ -49,11 +49,17 @@ git clone https://github.com/mmyddd/dsh-element-lens
 
 胶囊**不自己保存列表**：它每次都从草稿的 `occurrences` 投影出来，草稿是唯一权威。
 
-- 在胶囊面板里点 `×`：删除草稿里对应的 chip，胶囊随之消失。
+- 在胶囊面板里点「删除」：删除草稿里对应的 chip，胶囊随之消失。
 - 在输入框里删掉 chip：草稿变更触发订阅，胶囊立即跟着减。
 - 因此「胶囊显示 N 个」与「发送时会附带 N 个」永远一致。
 
 删除要落在编辑器的 detect 投影上：一个 chip 在草稿文本里占 `clipboardText.length` 个字符，在 detect 文本里只占 1 个，所以换算由 `chipSpan()` 完成。跨度每次删除时按最新快照重算（`spanOfChip()`），不复用绘制面板时记下的旧偏移——旧偏移配上新版本号会通过版本校验，然后剪掉错位的那一个字符。
+
+## 显示形式与批注胶囊一致
+
+- 胶囊本体：同一套 token 与度量（`z-index` 低一层，见下），`N` 用强调色加粗，后接单位文案。
+- 悬浮面板：与批注胶囊同构——`300px` 宽、`10px 12px` 内距、`12px` 圆角、同款边框/底色/阴影；顶部一行标题「网页元素（N 个）」，每行是圆形序号徽章 + 选择器摘要（超 100 字截断）+ 右侧红色「删除」。
+- 两者都占输入框右上角时：先量 `[data-annotation-chip]` 的位置，本胶囊让到它左侧留 8px 间隙；那一行放不下就叠到它上方。批注胶囊优先级更高——本胶囊 `z-index: 1149`，它 `1150`，即使某一帧撞在一起也是它压在上面。
 
 ## 与参考实现的对应关系
 
@@ -104,10 +110,11 @@ git clone https://github.com/mmyddd/dsh-element-lens
 ## 验证
 
 ```bash
-npm test                  # 四个套件一起跑
+npm test                  # 五个套件一起跑
 node test/manifest.cjs    # 清单、导出、路由、命名一致性
 node test/smoke.cjs       # 布局、点击、Esc、释放
 node test/sync.cjs        # 胶囊 ↔ 草稿双向一致
+node test/chip.cjs        # 胶囊让位批注胶囊的布局
 node test/webview.cjs     # guest 通道端到端
 ```
 

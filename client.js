@@ -51,15 +51,9 @@ window.__ModuleLoader__.load({
         liveBadge: '实时页面',
         snapshotFailed: '无法读取该页面：{message}',
         chipUnit: '个元素',
-        panelTitle: '网页元素',
-        panelInsert: '插入草稿',
-        panelClear: '全部清除',
-        rowRemove: '从列表移除',
-        insertedTag: '已插入',
-        pendingTag: '待插入',
+        panelCountTitle: '网页元素（{n} 个）',
+        rowRemove: '删除',
         tooMany: '一次最多拾取 12 个元素',
-        selectorLabel: '选择器',
-        removeAll: '清空',
       },
       en: {
         start: 'Select page element for chat',
@@ -72,15 +66,9 @@ window.__ModuleLoader__.load({
         liveBadge: 'Live page',
         snapshotFailed: 'This page cannot be read: {message}',
         chipUnit: ' element(s)',
-        panelTitle: 'Page elements',
-        panelInsert: 'Insert into draft',
-        panelClear: 'Clear all',
-        rowRemove: 'Remove from list',
-        insertedTag: 'in draft',
-        pendingTag: 'pending',
+        panelCountTitle: 'Page elements ({n})',
+        rowRemove: 'Delete',
         tooMany: 'At most 12 elements per pick',
-        selectorLabel: 'Selector',
-        removeAll: 'Clear',
       },
     }
 
@@ -102,8 +90,13 @@ window.__ModuleLoader__.load({
     // ───────────────────────────── style ──────────────────────────────
     const STYLE_ID = 'dsh-element-lens-style'
 
-    /** Pill geometry, verbatim token set shared with the annotation pill. */
-    const CHIP_CSS = 'position:fixed;z-index:1150;display:none;align-items:center;gap:4px;height:22px;'
+    /**
+     * Pill geometry, verbatim token set shared with the annotation pill. It sits
+     * one layer below that pill (1150): if the two ever land on the same spot
+     * for the fraction of a second before the next layout pass, the neighbour
+     * stays readable and this one steps aside.
+     */
+    const CHIP_CSS = 'position:fixed;z-index:1149;display:none;align-items:center;gap:4px;height:22px;'
       + 'padding:0 10px;border-radius:11px;border:1px solid var(--dsw-alias-border-inverted);'
       + 'background:var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-base, #2c2c2e));'
       + 'box-shadow:var(--dsw-shadow-lv3);font-family:var(--dsw-font-family,system-ui);'
@@ -135,53 +128,37 @@ window.__ModuleLoader__.load({
 [data-element-lens-chip] { -webkit-user-select: none; user-select: none; }
 [data-element-lens-chip] > b { color: var(--dsw-alias-text-accent, #4c9aff); font-weight: 700; }
 [data-element-lens-tip] {
-  position: fixed; z-index: 1160; box-sizing: border-box; width: 316px; max-height: 340px;
-  overflow: auto; padding: 10px 12px; border-radius: 12px; display: none;
+  position: fixed; z-index: 1160; box-sizing: border-box; width: 300px;
+  max-width: calc(100vw - 16px); max-height: 340px; overflow: auto;
+  padding: 10px 12px; border-radius: 12px; display: none;
   border: 1px solid var(--dsw-alias-border-inverted);
   background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-base, #2c2c2e));
   box-shadow: var(--dsw-shadow-lv3); font-family: var(--dsw-font-family, system-ui);
-  font-size: 11px; color: var(--dsw-alias-label-primary);
+  font-size: 12px; color: var(--dsw-alias-label-primary);
   animation: dsh-elens-pop .12s var(--ds-ease-in-out, ease);
 }
-[data-element-lens-tip] .dsh-elens-tip-head {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 8px; font-weight: 600; color: var(--dsw-alias-label-secondary);
-}
-[data-element-lens-tip] .dsh-elens-tip-head button,
-[data-element-lens-tip] .dsh-elens-row button {
-  appearance: none; border: 0; background: transparent; padding: 0 4px; margin: 0;
-  border-radius: 6px; cursor: pointer; color: var(--dsw-alias-label-tertiary);
-  font: inherit; line-height: 16px;
-}
-[data-element-lens-tip] .dsh-elens-tip-head button:hover,
-[data-element-lens-tip] .dsh-elens-row button:hover {
-  background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary);
-}
+[data-element-lens-tip] .dsh-elens-tip-head { font-weight: 600; margin-bottom: 6px; }
 [data-element-lens-tip] .dsh-elens-row {
-  display: flex; align-items: flex-start; gap: 8px; padding: 5px 0;
-  border-top: 1px solid var(--dsw-alias-border-l2);
+  padding: 6px 0; border-top: 1px solid var(--dsw-alias-border-strong, #444);
 }
-[data-element-lens-tip] .dsh-elens-row:first-of-type { border-top: 0; }
-[data-element-lens-tip] .dsh-elens-row-main { min-width: 0; flex: 1; }
-[data-element-lens-tip] .dsh-elens-row-tag { font-weight: 600; }
-[data-element-lens-tip] .dsh-elens-row-state { color: var(--dsw-alias-label-dimmed); margin-left: 6px; font-weight: 400; }
+[data-element-lens-tip] .dsh-elens-row-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 16px; height: 16px; margin-right: 6px; border-radius: 8px;
+  background: var(--dsw-alias-text-accent, #4c9aff); color: #fff;
+  font-size: 10px; font-weight: 700;
+}
 [data-element-lens-tip] .dsh-elens-row-sel {
-  display: block; margin-top: 2px; color: var(--dsw-alias-label-tertiary);
-  font-family: var(--dsw-font-family-mono, ui-monospace, monospace); font-size: 10px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 11px; line-height: 1.5; color: var(--dsw-alias-label-tertiary);
+  word-break: break-word;
 }
-[data-element-lens-tip] .dsh-elens-tip-foot { display: flex; gap: 6px; margin-top: 8px; }
-[data-element-lens-tip] .dsh-elens-tip-foot button {
-  appearance: none; border: 1px solid var(--dsw-alias-border-l2); cursor: pointer;
-  height: 24px; padding: 0 10px; border-radius: 12px; font: inherit;
-  color: var(--dsw-alias-label-primary); background: transparent;
+[data-element-lens-tip] .dsh-elens-row button {
+  appearance: none; margin: 0 0 0 8px; cursor: pointer; font: inherit;
+  background: transparent; border: 1px solid rgba(255, 107, 107, .4);
+  color: #ff8a8a; border-radius: 6px; font-size: 10px; padding: 1px 6px;
 }
-[data-element-lens-tip] .dsh-elens-tip-foot button:hover { background: var(--dsw-alias-interactive-bg-hover); }
-[data-element-lens-tip] .dsh-elens-tip-foot button[data-primary] {
-  border-color: transparent; background: var(--dsw-alias-button-primary-fill);
-  color: var(--dsw-alias-label-primary-foreground);
+[data-element-lens-tip] .dsh-elens-row button:hover {
+  color: #ffb3b3; border-color: rgba(255, 107, 107, .7);
 }
-[data-element-lens-tip] .dsh-elens-tip-foot button[data-primary]:hover { background: var(--dsw-alias-button-primary-hover); }
 [data-element-lens-hint] {
   position: fixed; z-index: 2147483001; display: none; align-items: center; gap: 8px;
   height: 24px; padding: 0 10px; border-radius: 12px; pointer-events: none;
@@ -1209,6 +1186,22 @@ window.__ModuleLoader__.load({
         return { card, seat }
       }
 
+      /**
+       * Another plugin can already own the composer's top-right corner. The
+       * annotation pill is a fixed layer carrying `data-annotation-chip`, so
+       * measure it and sit beside it rather than on top of it.
+       */
+      function neighbourPill(top, bottom) {
+        for (const pill of document.querySelectorAll('[data-annotation-chip]')) {
+          if (pill === chipLayer) continue
+          const rect = pill.getBoundingClientRect()
+          if (rect.width === 0 || rect.height === 0) continue
+          if (rect.bottom <= top || rect.top >= bottom) continue
+          return rect
+        }
+        return null
+      }
+
       /** Keeps the pill on the composer's top-right corner. */
       function updateChip() {
         if (state.items.length === 0) {
@@ -1238,13 +1231,28 @@ window.__ModuleLoader__.load({
         const width = chipLayer.offsetWidth || 80
         const height = chipLayer.offsetHeight || 24
         const seatTop = anchor.seat.getBoundingClientRect().top
-        const top = Math.min(cardRect.top, seatTop) - height - 6
+        let top = Math.min(cardRect.top, seatTop) - height - 6
         if (top < 8) {
           // Never clamp back inside the seat: that would cover the queue controls.
           chipLayer.style.display = 'none'
           return
         }
-        chipLayer.style.left = `${Math.max(8, Math.min(cardRect.right - width - 12, window.innerWidth - width - 8))}px`
+        let left = Math.max(8, Math.min(cardRect.right - width - 12, window.innerWidth - width - 8))
+        const neighbour = neighbourPill(top, top + height)
+        if (neighbour !== null) {
+          const beside = neighbour.left - width - 8
+          if (beside >= 8) {
+            left = beside
+          } else {
+            // No room on that row: stack above the neighbour instead.
+            const stacked = neighbour.top - height - 6
+            if (stacked >= 8) {
+              top = stacked
+              left = Math.max(8, Math.min(neighbour.right - width, window.innerWidth - width - 8))
+            }
+          }
+        }
+        chipLayer.style.left = `${left}px`
         chipLayer.style.top = `${top}px`
       }
 
@@ -1294,31 +1302,26 @@ window.__ModuleLoader__.load({
         tipLayer.textContent = ''
         const head = document.createElement('div')
         head.className = 'dsh-elens-tip-head'
-        const title = document.createElement('span')
-        title.textContent = `${t('panelTitle')} ×${state.items.length}`
-        head.appendChild(title)
+        head.textContent = t('panelCountTitle', { n: state.items.length })
         tipLayer.appendChild(head)
 
-        for (const item of state.items) {
+        state.items.forEach((item, index) => {
           const row = document.createElement('div')
           row.className = 'dsh-elens-row'
-          const main = document.createElement('div')
-          main.className = 'dsh-elens-row-main'
-          const tag = document.createElement('span')
-          tag.className = 'dsh-elens-row-tag'
-          tag.textContent = item.tag
-          main.appendChild(tag)
+          const num = document.createElement('span')
+          num.className = 'dsh-elens-row-num'
+          num.textContent = String(index + 1)
           const selector = document.createElement('span')
           selector.className = 'dsh-elens-row-sel'
-          selector.textContent = item.selector
+          selector.textContent = item.selector.length > 100 ? `${item.selector.slice(0, 100)}…` : item.selector
           selector.title = item.selector
-          main.appendChild(selector)
-          row.appendChild(main)
+          row.appendChild(num)
+          row.appendChild(selector)
 
           const remove = document.createElement('button')
           remove.setAttribute('type', 'button')
           remove.setAttribute('data-element-lens-remove', '')
-          remove.textContent = '×'
+          remove.textContent = t('rowRemove')
           remove.title = t('rowRemove')
           remove.setAttribute('aria-label', t('rowRemove'))
           remove.addEventListener('click', (event) => {
@@ -1332,28 +1335,11 @@ window.__ModuleLoader__.load({
           })
           row.appendChild(remove)
           tipLayer.appendChild(row)
-        }
-
-        const foot = document.createElement('div')
-        foot.className = 'dsh-elens-tip-foot'
-        const clear = document.createElement('button')
-        clear.setAttribute('type', 'button')
-        clear.textContent = t('panelClear')
-        clear.addEventListener('click', (event) => {
-          event.preventDefault()
-          event.stopPropagation()
-          // One at a time: every removal moves the revision and the offsets that
-          // follow it, so a batch would address stale spans.
-          for (const item of draftItems(ctx)) removeFromDraft(ctx, item)
-          refreshItems()
-          hideTip()
         })
-        foot.appendChild(clear)
-        tipLayer.appendChild(foot)
 
         tipLayer.style.display = 'block'
         const chipRect = chipLayer.getBoundingClientRect()
-        const width = tipLayer.offsetWidth || 316
+        const width = tipLayer.offsetWidth || 300
         const height = tipLayer.offsetHeight || 160
         let top = chipRect.top - height - 8
         if (top < 8) top = chipRect.bottom + 8
