@@ -1,0 +1,54 @@
+{
+  "name": "dsh-element-lens",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Pick an element in the right-Sidebar browser and drop it into the chat draft.",
+  "license": "MIT",
+  "author": "mmyddd",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "element-picker",
+    "devtools"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mmyddd/dsh-element-lens.git"
+  },
+  "homepage": "https://github.com/mmyddd/dsh-element-lens",
+  "bugs": {
+    "url": "https://github.com/mmyddd/dsh-element-lens/issues"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node test/smoke.cjs && node test/sync.cjs && node test/webview.cjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-sidebar-right",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  }
+}
