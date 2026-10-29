@@ -55,6 +55,15 @@ git clone https://github.com/mmyddd/dsh-element-lens
 
 删除要落在编辑器的 detect 投影上：一个 chip 在草稿文本里占 `clipboardText.length` 个字符，在 detect 文本里只占 1 个，所以换算由 `chipSpan()` 完成。跨度每次删除时按最新快照重算（`spanOfChip()`），不复用绘制面板时记下的旧偏移——旧偏移配上新版本号会通过版本校验，然后剪掉错位的那一个字符。
 
+### chip 的 `clipboardText` 放的是完整描述
+
+草稿被投影成字符串时，一个 chip 贡献的是它的 `clipboardText`，而发出去的消息正文正是这份投影。所以 `clipboardText` 存的是整套元素描述（与 `ref` 相同），不是胶囊上那个短标签 `[元素] div`。这带来两个必要的结果：
+
+- 任何把草稿改写成纯文本的插件（例如批注插件用 `setDraft` 拼它自己的块）都不会把元素变成一行裸标签——载荷随文本一起过去，气泡里的折叠胶囊仍然能认出来。
+- 折叠照旧生效：消息正文里的 `## Element …` 块被替换成「元素 ×N」，模型收到的仍是完整描述。
+
+配套地，检测到这种一次性的纯文本改写后，插件会把被压平的 chip 就地换回来（按 `ref` 找回那段文字、用一次替换把文本换成 chip），而不是再追加一个——追加会让载荷在草稿里出现两遍。
+
 ## 显示形式与批注胶囊一致
 
 - 胶囊本体：同一套 token 与度量（`z-index` 低一层，见下），`N` 用强调色加粗，后接单位文案。
@@ -110,12 +119,13 @@ git clone https://github.com/mmyddd/dsh-element-lens
 ## 验证
 
 ```bash
-npm test                  # 六个套件一起跑
+npm test                  # 七个套件一起跑
 node test/manifest.cjs    # 清单、导出、路由、命名一致性
 node test/smoke.cjs       # 布局、点击、Esc、释放
 node test/sync.cjs        # 胶囊 ↔ 草稿双向一致
 node test/chip.cjs        # 胶囊让位批注胶囊的布局
 node test/fold.cjs        # 已发送消息折叠与 hover 回看
+node test/handoff.cjs     # 与批注插件同发时元素不丢
 node test/webview.cjs     # guest 通道端到端
 ```
 

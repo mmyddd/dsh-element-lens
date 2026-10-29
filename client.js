@@ -1059,6 +1059,20 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /**
+     * Builds the chip payload for one picked element.
+     *
+     * `clipboardText` is what the draft shows when the chip is projected to a
+     * plain string — and that string is what a submitted message carries. It
+     * therefore holds the whole element description, not the short label: any
+     * plain-text rewrite of the draft (a sibling plugin composing its block with
+     * `setDraft`, for one) must not be able to drop what the element was.
+     */
+    function referenceFor(ref, label) {
+      const text = typeof label === 'string' && label !== '' ? label : '[element]'
+      return { source: 'reference', ref, label: text, clipboardText: ref }
+    }
+
     /** The session whose composer the pick should land in. */
     function currentSessionId(ctx) {
       try {
@@ -1384,13 +1398,105 @@ window.__ModuleLoader__.load({
       }
 
       /** Re-reads the draft and repaints the pill; the pill holds no state of its own. */
+      /**
+       * Reads the live draft snapshot for the current session, or null when no
+       * session/input is reachable.
+       */
+      function draftSnapshot(ctx) {
+        const sessionId = currentSessionId(ctx)
+        if (sessionId === undefined) return null
+        const found = inputFor(ctx, sessionId)
+        if (found === null) return null
+        try {
+          return { sessionId, snapshot: found.input.state.getSnapshot() }
+        } catch (error) {
+          return null
+        }
+      }
+
+      // A sibling plugin that composes its own block into the draft does so with
+      // `setDraft`, which rewrites plain text and therefore flattens every chip
+      // already in the draft. Detect that one transition — the block's opening
+      // sentence appearing where it was not a moment ago — and re-insert the
+      // chips it swallowed, so a message carrying both keeps both.
+      const ANNOTATION_LEAD = /我批注了以下|I annotated the following|Я аннотировал следующие/
+
+      function looksAnnotated(draft) {
+        return ANNOTATION_LEAD.test(draft)
+      }
+
+      let chipCache = []
+      let lastDraftText = ''
+      let restorePending = false
+
+      /**
+       * Puts the chips a sibling's plain-text rewrite swallowed back where they
+       * were.
+       *
+       * The rewrite leaves each chip's payload behind as ordinary text, so this
+       * looks up that payload and swaps the text run for a fresh chip instead of
+       * appending one. Appending would leave the payload twice: once as the text
+       * the rewrite produced and once inside the new chip.
+       */
+      function restoreFlattenedChips() {
+        if (restorePending || chipCache.length === 0) return
+        const cached = chipCache.slice()
+        restorePending = true
+        // Off the notification callback: editing from inside a store
+        // notification would re-enter the same store.
+        window.setTimeout(() => {
+          restorePending = false
+          const found = draftSnapshot(ctx)
+          if (found === null) return
+          const sessionId = found.sessionId
+          const handle = inputFor(ctx, sessionId)
+          if (handle === null) return
+          const { input } = handle
+          let snapshot = found.snapshot
+          if (!draftWritable(snapshot)) return
+          let changed = false
+          // The rewrite dropped every chip, so the draft is plain text and its
+          // character offsets are the same in both projections. Later entries go
+          // first so an earlier run keeps its offsets valid.
+          for (let index = cached.length - 1; index >= 0; index -= 1) {
+            const entry = cached[index]
+            const text = String(snapshot.draft ?? '')
+            const at = text.lastIndexOf(entry.ref)
+            if (at < 0) continue
+            input.insertText('', { draftRev: snapshot.draftRev, start: at, end: at + entry.ref.length })
+            snapshot = input.state.getSnapshot()
+            const spot = Math.min(at, String(snapshot.draft ?? '').length)
+            input.insertReference(referenceFor(entry.ref, entry.label), {
+              draftRev: snapshot.draftRev,
+              start: spot,
+              end: spot,
+            })
+            snapshot = input.state.getSnapshot()
+            changed = true
+          }
+          if (changed) refreshItems()
+        }, 0)
+      }
+
       function refreshItems() {
         const items = draftItems(ctx)
         const same = items.length === state.items.length
           && items.every((item, index) => state.items[index] !== undefined && state.items[index].id === item.id)
+        const previousCount = state.items.length
         state.items = items
         if (!same && tipOwner === chipLayer) renderTip()
         updateChip()
+
+        const found = draftSnapshot(ctx)
+        const draft = found === null ? '' : String(found.snapshot.draft ?? '')
+        const attached = !looksAnnotated(lastDraftText) && looksAnnotated(draft)
+        lastDraftText = draft
+
+        if (items.length > 0) {
+          chipCache = items.map((item) => ({ ref: item.reference, label: item.label }))
+          return
+        }
+        if (attached && previousCount > 0) restoreFlattenedChips()
       }
 
       /**
@@ -1554,12 +1660,7 @@ window.__ModuleLoader__.load({
           return
         }
         const label = `[${language === 'zh' ? '元素' : 'element'}] ${element.tagName}`
-        const reference = {
-          source: 'reference',
-          ref: serializeElement(element, standing.length + 1),
-          label,
-          clipboardText: label,
-        }
+        const reference = referenceFor(serializeElement(element, standing.length + 1), label)
         if (!appendReference(ctx, sessionId, reference)) notify(t('failed', { message: 'draft is not writable' }))
         refreshItems()
       }

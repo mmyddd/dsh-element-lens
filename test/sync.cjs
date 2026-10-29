@@ -76,7 +76,9 @@ const fakeInput = {
     },
   },
   insertReference(reference, span) {
-    const label = reference.label
+    // The host projects a chip to its `clipboardText`, so that — not the short
+    // label — is what occupies space in the draft string.
+    const label = reference.clipboardText === undefined ? reference.label : reference.clipboardText
     // Spans are detect coordinates here too: the real editor resolves them
     // against its detect projection, which is why a chip counts as one character.
     const clipSpot = detectToClipboard(span.start)
